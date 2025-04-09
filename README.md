@@ -1,4 +1,4 @@
-# MINIMACY Example: Airport display. Who need crowdstrike?
+# MINIMACY Example: Airport display. Who needs crowdstrike?
 On July 19th 2024, a lot of airports and other infrastructures encountered blue screens, and freezed computers. It turned out this was caused by a wrong update of the embedded crowdstrike security probe. Even on basic devices which only display next departures, people had add up a lot of stuff and complexity nobody was aware of.
 
 This program demonstrates how to:

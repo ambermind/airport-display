@@ -1,2 +1,2 @@
 
-fun run = start "demo.airport.display";;
+fun main ()= start("demo.airport.display");;

@@ -1,0 +1,102 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (c) 2024, Sylvain Huet, Ambermind
+// Minimacy (r) Demonstration
+
+use core.net.http.cli;;
+use core.util.xml;;
+use core.2d.png;;
+use core.2d.font;;
+
+const AIRPORT="cdg";;
+
+const URL=strFormat("https://www.avionio.com/widget/en/*/departures", AIRPORT);;
+
+const FontText= fontFromBitmap(bitmapFromPng(load("rsc/fonts/Arial_32_256.png")));;
+
+const WIDTH=1280;;
+const HEIGHT=720;;
+const MARGIN_X=15;;
+const MARGIN_Y=10;;
+const ROW_HEIGHT=40;;
+
+const COLOR_BACKGROUND=0x4040ff;;
+const COLOR_TEXT=0xffffff;;
+const COLOR_SEPARATOR=0x808080;;
+const COLOR_TITLE=0xc0c080;;
+
+const REFRESH_DATA_PERIOD= 60;;	// seconds
+const NEXT_PAGE_PERIOD= 2;;	// seconds
+const NB_SERVER_PAGES= 3;;	// number of server requests
+
+var FlightList;;
+var BoardTitle;;
+
+fun listSkip(l, n)= if n<=0 then l else listSkip(tail(l), n-1);;
+
+fun avionioParse(suffix)=
+	let echoLn strConcat(URL, suffix) -> url in
+	let httpGet(url) -> data in
+	let htmlParse(data, 0, false) -> [xml, _] in
+	let head(xmlFilterChilds(xml, "body")) -> xml in
+	let head(xmlFilterChilds(xml, "main")) -> xml in
+	let strTrim(xmlGetContent(head(xmlFilterChilds(xml, "h1")))) -> title in
+	let head(xmlFilterChilds(xml, "table")) -> xml in
+	let head(xmlFilterChilds(xml, "tbody")) -> xml in
+	let xmlFilterChilds(xml, "tr") -> listItems in
+	let head(xmlFilterChilds(head(listItems), "td")) -> xmlNav in
+	let head(xmlFilterChilds(xmlNav, "a")) -> xmlNav in
+	let xmlGetAttribute(xmlNav, "href") -> href in
+	let head(strSplit("&amp", head(tail(strSplit("?ts=", href))))) -> ts in
+	let listFilter(listItems, lambda(xml) = strContains(xmlGetAttribute(xml, "class"), "tt-row")) -> listItems in
+	let listMap(listItems, lambda(xml) =
+		let xmlFilterChilds(xml, "td") -> columns in
+		let listMap(columns, lambda(xml) = strTrim(xmlGetContent(xml))) -> columns in
+		let columns -> hour::_::_::destination::flight::company::estimated::_ in
+		[hour, destination, flight, company, estimated]
+	) -> listItems in (
+		echoLn strFormat("nbItems= *", listLength(listItems));
+		[title, ts, listItems]
+	);;
+
+fun avionioLoad ()=
+	let avionioParse(nil) -> [title, ts, listItems] in (
+		for i=1;i<NB_SERVER_PAGES do
+			let avionioParse(strFormat("?ts=*&page=*", ts, i)) -> [_, _, listItemsNext] in
+			set listItems=listConcat(listItems, listItemsNext);
+		if listItems<>nil then (
+			set FlightList=listItems;
+			set BoardTitle=title
+		);
+		onTimeout(1000*REFRESH_DATA_PERIOD, #avionioLoad)
+	);;
+	
+fun _flightDrawItem(listItems, y)=
+	if listItems<>nil && y+ROW_HEIGHT <= HEIGHT-MARGIN_Y then
+	let head(listItems) -> [hour, destination, flight, company, estimated] in (
+		bitmapTextU8(uiBuffer(), MARGIN_X, y, 0, hour, FontText, COLOR_TEXT, nil);
+		bitmapTextU8(uiBuffer(), MARGIN_X+80, y, 0, destination, FontText, COLOR_TEXT, nil);
+		bitmapTextU8(uiBuffer(), WIDTH/2-140, y, 0, flight, FontText, COLOR_TEXT, nil);
+		bitmapTextU8(uiBuffer(), WIDTH/2, y, 0, company, FontText, COLOR_TEXT, nil);
+		bitmapTextU8(uiBuffer(), WIDTH-MARGIN_X, y, ALIGN_RIGHT, estimated, FontText, COLOR_TEXT, nil);
+		bitmapLine(uiBuffer(), 0, y+ROW_HEIGHT-5, WIDTH, y+ROW_HEIGHT-5, COLOR_SEPARATOR, nil);
+		_flightDrawItem(tail(listItems), y+ROW_HEIGHT)
+	);;
+
+fun flightDraw(skip)=
+	let FlightList -> listItems in
+	let listLength(listItems) -> nbItems in
+	let (HEIGHT-MARGIN_Y*2)/ROW_HEIGHT -> nbItemsPerPage in
+	let if skip<nbItems then skip else 0 -> skip in
+	(
+		echoLn strFormat("display flights */*", skip, nbItems);
+		bitmapErase(uiBuffer(), COLOR_BACKGROUND);
+		_flightDrawItem(listSkip(listItems, skip), MARGIN_Y);
+		bitmapTextU8(uiBuffer(), WIDTH-MARGIN_X, HEIGHT-2, ALIGN_RIGHT|ALIGN_BOTTOM, BoardTitle, FontText, COLOR_TITLE, nil);
+		uiUpdate();
+		onTimeout(1000*NEXT_PAGE_PERIOD, lambda ()= flightDraw(skip+nbItemsPerPage))
+	);;
+	
+fun main ()=
+	avionioLoad();
+	uiStart(0, 0, WIDTH, HEIGHT, UI_RESIZE, BoardTitle);
+	flightDraw(0);;

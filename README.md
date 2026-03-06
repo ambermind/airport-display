@@ -10,7 +10,7 @@ This program demonstrates how to:
 
 This demo works on any platform including baremetal Raspberry Pi.
 
-Documentation is here [Airport display](https://minimacy.net/book/#/page/page:1391,tm:0)
+Documentation is here [Airport display](https://minimacy.net/book/#/tag/airport)
 
 ## About MINIMACY
 Computing is something too serious to be left to machines.

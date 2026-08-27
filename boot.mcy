@@ -1,2 +1,14 @@
+#ifdef RPi4Device
 
-fun main ()= start("demo.airport.display");;
+use core.net.ipOverEth;;
+
+fun main() = 
+	netDhcp(netUp("eth0"));
+//	netStatic(netUp("eth0"), "169.254.1.1", "255.255.0.0", nil, nil);
+	net();
+	start ("demo.airport.display");;
+
+#else
+fun main ()= 
+	start("demo.airport.display");;
+#endif

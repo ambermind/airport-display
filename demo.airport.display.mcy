@@ -11,7 +11,7 @@ const AIRPORT="cdg";;
 
 const URL=strFormat("https://www.avionio.com/widget/en/*/departures", AIRPORT);;
 
-const FontText= fontFromBitmap(bitmapFromPng(load("rsc/fonts/Arial_32_256.png")));;
+const FontText= fontFromBitmap(bitmapFromPng(load("Arial_32_256.png")));;
 
 const WIDTH=1280;;
 const HEIGHT=720;;

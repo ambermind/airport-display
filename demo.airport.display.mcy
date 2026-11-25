@@ -3,6 +3,7 @@
 // Minimacy (r) Demonstration
 
 use core.net.http.cli;;
+use core.crypto.cer;;
 use core.util.xml;;
 use core.2d.png;;
 use core.2d.font;;
@@ -33,9 +34,9 @@ var BoardTitle;;
 
 fun listSkip(l, n)= if n<=0 then l else listSkip(tail(l), n-1);;
 
-fun avionioParse(suffix)=
+fun avionioParse(h, suffix)=
 	let echoLn strConcat(URL, suffix) -> url in
-	let httpGet(url) -> data in
+	let httpGetExt(h, url) -> [h, code, data] in
 	let htmlParse(data, 0, false) -> [xml, _] in
 	let head(xmlFilterChilds(xml, "body")) -> xml in
 	let head(xmlFilterChilds(xml, "main")) -> xml in
@@ -55,19 +56,19 @@ fun avionioParse(suffix)=
 		[hour, destination, flight, company, estimated]
 	) -> listItems in (
 		echoLn strFormat("nbItems= *", listLength(listItems));
-		[title, ts, listItems]
+		[h, title, ts, listItems]
 	);;
 
-fun avionioLoad ()=
-	let avionioParse(nil) -> [title, ts, listItems] in (
+fun avionioLoad()=
+	let avionioParse(nil, nil) -> [h, title, ts, listItems] in (
 		for i=1;i<NB_SERVER_PAGES do
-			let avionioParse(strFormat("?ts=*&page=*", ts, i)) -> [_, _, listItemsNext] in
+			let avionioParse(h, strFormat("?ts=*&page=*", ts, i)) -> [_, _, _, listItemsNext] in
 			set listItems=listConcat(listItems, listItemsNext);
 		if listItems<>nil then (
 			set FlightList=listItems;
 			set BoardTitle=title
 		);
-		onTimeout(1000*REFRESH_DATA_PERIOD, #avionioLoad)
+		onTimeout(1000*REFRESH_DATA_PERIOD, lambda()=threadStart("fetch", #avionioLoad))
 	);;
 	
 fun _flightDrawItem(listItems, y)=
@@ -95,8 +96,9 @@ fun flightDraw(skip)=
 		uiUpdate();
 		onTimeout(1000*NEXT_PAGE_PERIOD, lambda ()= flightDraw(skip+nbItemsPerPage))
 	);;
-	
+
 fun main ()=
-	avionioLoad();
+	cerRegisterRootCertificate(cerEcho(*)cerFromPEM(load("ISRG Root X2.pem"), nil));
 	uiStart(0, 0, WIDTH, HEIGHT, UI_RESIZE, BoardTitle);
+	avionioLoad();
 	flightDraw(0);;
